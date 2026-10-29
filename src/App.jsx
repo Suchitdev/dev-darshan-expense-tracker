@@ -1,5 +1,5 @@
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
   ArrowDownRight,
@@ -79,6 +79,19 @@ const familyStatus = (status) =>
   status === "Settled" ? "Paid" : status || "Pending";
 
 export default function App() {
+  // Reference to the Manage tour records section
+  const managerTourRef = useRef(null);
+
+  function goToManagerTour() {
+    setTab("overview");
+    setTimeout(() => {
+      managerTourRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }
+
   const [families, setFamilies] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -274,7 +287,7 @@ export default function App() {
       "Editing expense. Make your changes and select Update expense."
     );
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+      goToManagerTour();
   }
 
   function startEditFamily(item) {
@@ -297,7 +310,7 @@ export default function App() {
       "Editing family contribution. Make your changes and select Update contribution."
     );
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    goToManagerTour();
   }
 
   function cancelExpenseEdit() {
@@ -738,7 +751,7 @@ export default function App() {
         )}
 
         {adminMode && (
-          <section className="admin-panel">
+          <section ref={managerTourRef} className="admin-panel">
             <div className="section-heading">
               <div>
                 <div className="eyebrow">ADMIN TOOLS</div>
@@ -751,10 +764,23 @@ export default function App() {
 
             <div className="forms-grid">
               <form className="entry-form" onSubmit={saveExpense}>
-                <h3>
-                  <Plus size={17} />
-                  {editingExpenseId ? "Edit expense" : "Add expense"}
-                </h3>
+                <div className="expense-form-heading">
+  <h3>
+    <Plus size={17} />
+    {editingExpenseId ? "Editing Existing Expense" : "Add New Expense"}
+  </h3>
+
+  {editingExpenseId && (
+    <button
+      className="text-button"
+      type="button"
+      disabled={busy}
+      onClick={cancelExpenseEdit}
+    >
+      + Add New Expense
+    </button>
+  )}
+</div>
 
                 <label>
                   Description
@@ -865,12 +891,24 @@ export default function App() {
               </form>
 
               <form className="entry-form" onSubmit={saveFamily}>
-                <h3>
-                  <Plus size={17} />
-                  {editingFamilyId
-                    ? "Edit family contribution"
-                    : "Add family contribution"}
-                </h3>
+                <div className="expense-form-heading">
+                  <h3>
+                    <Plus size={17} />
+                    {editingFamilyId
+                      ? "Editing Existing Contribution"
+                      : "Add New Contribution"}
+                  </h3>
+                  {editingFamilyId && (
+                    <button
+                      className="text-button"
+                      type="button"
+                      disabled={busy}
+                      onClick={cancelFamilyEdit}
+                    >
+                      + Add New Contribution
+                    </button>
+                  )}
+                </div>
 
                 <label>
                   Family name
