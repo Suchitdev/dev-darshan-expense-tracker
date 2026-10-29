@@ -417,8 +417,7 @@ table tfoot td { background: #faf8fe; font-weight: 650; }
 .delete-button { color: var(--red); background: #fff3f3; border-color: #f3dcdc; }
 
 .error-banner, .message-banner {
-  margin-bottom: 16px;
-  padding: 12px 14px;
+    padding: 12px 14px;
   border: 1px solid;
   border-radius: 9px;
   font-size: 12px;
@@ -838,7 +837,7 @@ button, input, select, textarea { font-family: inherit; }
   .data-card,
   .admin-panel {
     width: 100%;
-    min-width: 0;
+        min-width: 0;
     margin-bottom: 14px;
     padding: 12px;
     border-radius: 12px;
@@ -1045,3 +1044,196 @@ button, input, select, textarea { font-family: inherit; }
     padding: 11px 10px;
   }
 }
+
+
+/* =========================================================
+   DEV DARSHAN LEDGER FIX
+   Keep the complete original styling above. These rules only
+   control the desktop table and mobile transaction cards.
+   ========================================================= */
+
+.desktop-only-table {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid #eeeaf3;
+  border-radius: 9px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.desktop-only-table .ledger-table {
+  width: 100%;
+  min-width: 800px;
+  border-collapse: collapse;
+}
+
+.mobile-ledger-list {
+  display: none;
+}
+
+.mobile-ledger-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  padding: 15px;
+  color: var(--text);
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+.mobile-ledger-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.mobile-ledger-description {
+  display: flex;
+  flex: 1 1 140px;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.mobile-ledger-description strong {
+  color: var(--heading);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.mobile-ledger-description span {
+  color: #81778f;
+  font-size: 11px;
+}
+
+.mobile-ledger-heading > strong {
+  max-width: 100%;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.ledger-income-amount {
+  color: var(--green);
+}
+
+.ledger-expense-amount {
+  color: var(--red);
+}
+
+.mobile-ledger-details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #716b83;
+  font-size: 11px;
+}
+
+.mobile-ledger-details span {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mobile-ledger-details svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mobile-ledger-balance {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #eee8f5;
+}
+
+.mobile-ledger-balance span {
+  color: #716b83;
+  font-size: 11px;
+}
+
+.mobile-ledger-balance strong {
+  color: var(--accent);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.mobile-ledger-total {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 15px;
+  background: var(--accent-light);
+  border: 1px solid #e8dcfa;
+  border-radius: 12px;
+}
+
+.mobile-ledger-total > div {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.mobile-ledger-total span {
+  color: #625575;
+  font-size: 12px;
+}
+
+.mobile-ledger-total strong {
+  color: var(--heading);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .desktop-only-table {
+    display: none;
+  }
+
+  .mobile-ledger-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    margin-top: 14px;
+  }
+
+  .ledger-card {
+    min-width: 0;
+  }
+}
+
+
+/* Responsive ledger cards */
+.mobile-ledger-list { display: none; }
+.mobile-ledger-card { display: flex; flex-direction: column; gap: 12px; width: 100%; min-width: 0; padding: 15px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 12px; overflow-wrap: anywhere; box-sizing: border-box; }
+.mobile-ledger-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 10px; min-width: 0; }
+.mobile-ledger-description { display: flex; flex: 1 1 140px; flex-direction: column; gap: 5px; min-width: 0; }
+.mobile-ledger-description strong { color: var(--heading); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.mobile-ledger-description span { color: #81778f; font-size: 11px; line-height: 1.5; }
+.mobile-ledger-heading > strong { max-width: 100%; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.ledger-income-amount { color: var(--green); }
+.ledger-expense-amount { color: var(--red); }
+.mobile-ledger-details { display: flex; flex-direction: column; gap: 8px; min-width: 0; color: #716b83; font-size: 11px; line-height: 1.5; }
+.mobile-ledger-details span { display: flex; align-items: flex-start; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.mobile-ledger-balance { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; padding-top: 10px; border-top: 1px solid #eee8f5; }
+.mobile-ledger-balance span { color: #716b83; font-size: 11px; }
+.mobile-ledger-balance strong { color: var(--accent); font-size: 13px; overflow-wrap: anywhere; }
+@media (max-width: 768px) { .desktop-only-table { display: none !important; } .mobile-ledger-list { display: flex; flex-direction: column; gap: 12px; width: 100%; min-width: 0; margin-top: 14px; } }
+@media (min-width: 769px) { .desktop-only-table { display: block; width: 100%; min-width: 0; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--border); border-radius: 9px; -webkit-overflow-scrolling: touch; } .desktop-only-table table { width: 100%; } .desktop-only-table .ledger-table { min-width: 800px; } }
+@media (max-width: 480px) { .mobile-ledger-card { padding: 12px; border-radius: 12px; } .mobile-ledger-heading { gap: 8px; } .mobile-ledger-description { flex-basis: 100px; } .mobile-ledger-heading > strong { font-size: 12px; } }

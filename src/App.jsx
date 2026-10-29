@@ -1,55 +1,59 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
   ArrowDownRight,
   ArrowUpRight,
   CalendarDays,
   CheckCircle2,
-  Clock3,
   Coins,
+  Clock3,
   IndianRupee,
   LockKeyhole,
   LogOut,
-  Pencil,
   Plus,
   RefreshCw,
   ShieldCheck,
   Wallet,
   X,
+  Pencil,
 } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import "./App.css";
 
-const FUNCTION_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/smart-task`;
-const REQUIRED_PER_COUPLE = 9000;
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const FUNCTION_URL = SUPABASE_URL
+  ? `${SUPABASE_URL.replace(/\/+$/, "")}/functions/v1/smart-task`
+  : "";
 
 const today = () => {
   const now = new Date();
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+  return new Date(
+    now.getTime() - now.getTimezoneOffset() * 60000
+  )
     .toISOString()
     .slice(0, 10);
 };
 
-const money = (value) =>
+const money = (amount) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(Number(value) || 0);
+    maximumFractionDigits: 0,
+  }).format(Number(amount) || 0);
 
 const dateLabel = (value) => {
   if (!value) return "—";
 
-  const date = String(value).slice(0, 10);
-  const [year, month, day] = date.split("-").map(Number);
-
-  if (!year || !month || !day) return "—";
-
-  return new Date(year, month - 1, day).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString(
+    "en-IN",
+    {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }
+  );
 };
 
 const emptyExpenseForm = () => ({
@@ -62,55 +66,63 @@ const emptyExpenseForm = () => ({
 
 const emptyFamilyForm = () => ({
   family_name: "",
+  pilgrim_members: "2",
   contribution_paid: "0",
+  settlement_status: "Pending",
   payment_mode: "",
   contribution_date: today(),
 });
 
-const familyStatus = (family) =>
-  Number(family?.contribution_paid || 0) >= REQUIRED_PER_COUPLE
-    ? "Paid"
-    : "Pending";
+const REQUIRED_PER_COUPLE = 9000;
+
+const familyStatus = (status) =>
+  status === "Settled" ? "Paid" : status || "Pending";
 
 export default function App() {
   const [families, setFamilies] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-
-  const [tab, setTab] = useState("overview");
-  const [familySort, setFamilySort] = useState("name");
-
   const [adminOpen, setAdminOpen] = useState(false);
   const [passcode, setPasscode] = useState("");
   const [adminMode, setAdminMode] = useState(false);
-
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [tab, setTab] = useState("overview");
+  const [familySort, setFamilySort] = useState("name");
   const [expenseForm, setExpenseForm] = useState(emptyExpenseForm);
   const [familyForm, setFamilyForm] = useState(emptyFamilyForm);
-
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [editingFamilyId, setEditingFamilyId] = useState(null);
 
   const loadData = useCallback(async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
-
     setError("");
 
     try {
       const [familyResult, expenseResult] = await Promise.all([
-        supabase.from("families").select("*"),
-        supabase.from("expenses").select("*"),
+        supabase
+          .from("families")
+          .select("*")
+          .order("created_at", { ascending: true }),
+        supabase
+          .from("expenses")
+          .select("*")
+          .order("expense_date", { ascending: false }),
       ]);
 
-      if (familyResult.error) throw familyResult.error;
-      if (expenseResult.error) throw expenseResult.error;
+      if (familyResult.error || expenseResult.error) {
+        throw new Error(
+          familyResult.error?.message ||
+            expenseResult.error?.message ||
+            "Could not load the tour data."
+        );
+      }
 
       setFamilies(familyResult.data || []);
       setExpenses(expenseResult.data || []);
     } catch (err) {
-      setError(err.message || "Could not load tour data.");
+      setError(err.message || "Could not load the tour data.");
     } finally {
       setLoading(false);
     }
@@ -126,174 +138,109 @@ export default function App() {
     return () => clearInterval(interval);
   }, [loadData]);
 
-  // When Edit is clicked, automatically bring the relevant form into view.
-  useEffect(() => {
-    if (editingExpenseId || editingFamilyId) {
-      requestAnimationFrame(() => {
-        document.getElementById("admin-entry-forms")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
-    }
-  }, [editingExpenseId, editingFamilyId]);
-
-  const totalContributions = useMemo(
-    () =>
-      families.reduce(
-        (sum, family) => sum + Number(family.contribution_paid || 0),
-        0
-      ),
-    [families]
+  const totalExpenses = expenses.reduce(
+    (sum, item) => sum + Number(item.amount || 0),
+    0
   );
 
-  const totalExpenses = useMemo(
-    () =>
-      expenses.reduce(
-        (sum, expense) => sum + Number(expense.amount || 0),
-        0
-      ),
-    [expenses]
+  const totalContributions = families.reduce(
+    (sum, item) => sum + Number(item.contribution_paid || 0),
+    0
   );
 
-  const balance = totalContributions - totalExpenses;
   const totalMembers = families.length * 2;
+  const balance = totalContributions - totalExpenses;
 
   const pendingFamilies = families.filter(
-    (family) => familyStatus(family) === "Pending"
+    (item) => familyStatus(item.settlement_status) !== "Paid"
   ).length;
 
-  const paidFamilies = families.filter(
-    (family) => familyStatus(family) === "Paid"
-  ).length;
-
-  // Alphabetical by default; optionally sort by most recent contribution date.
-  const sortedFamilies = useMemo(
-    () =>
-      [...families].sort((a, b) => {
-        if (familySort === "date") {
-          const dateA = String(
-            a.contribution_date || a.created_at || ""
-          ).slice(0, 10);
-
-          const dateB = String(
-            b.contribution_date || b.created_at || ""
-          ).slice(0, 10);
-
-          return dateB.localeCompare(dateA) ||
-            String(a.family_name || "").localeCompare(
-              String(b.family_name || ""),
-              "en",
-              { sensitivity: "base" }
-            );
-        }
-
-        return String(a.family_name || "").localeCompare(
+  const sortedFamilies = [...families].sort((a, b) =>
+    familySort === "date"
+      ? String(b.contribution_date || b.created_at || "")
+          .slice(0, 10)
+          .localeCompare(
+            String(a.contribution_date || a.created_at || "").slice(0, 10)
+          )
+      : String(a.family_name || "").localeCompare(
           String(b.family_name || ""),
           "en",
           { sensitivity: "base" }
-        );
-      }),
-    [families, familySort]
+        )
   );
 
-  // Expenses: newest date first. Same-day records sort by creation time.
-  const sortedExpenses = useMemo(
-    () =>
-      [...expenses].sort((a, b) => {
-        const dateA = String(
-          a.expense_date || a.created_at || ""
-        ).slice(0, 10);
-
-        const dateB = String(
-          b.expense_date || b.created_at || ""
-        ).slice(0, 10);
-
-        return (
-          dateB.localeCompare(dateA) ||
-          String(b.created_at || "").localeCompare(String(a.created_at || ""))
-        );
-      }),
-    [expenses]
+  const sortedExpenses = [...expenses].sort((a, b) =>
+    String(b.expense_date || b.created_at || "")
+      .slice(0, 10)
+      .localeCompare(
+        String(a.expense_date || a.created_at || "").slice(0, 10)
+      )
   );
 
-  /*
-   * Build the ledger in chronological order first.
-   * The balance for each row is calculated from all earlier transactions.
-   * Keep this table oldest-first so the running balance reads naturally.
-   */
-  const ledgerRows = useMemo(() => {
-    const entries = [
-      ...families
-        .filter((family) => Number(family.contribution_paid || 0) > 0)
-        .map((family) => ({
-          key: `family-${family.id}`,
-          recordType: "families",
-          recordId: family.id,
-          date: String(
-            family.contribution_date || family.created_at || ""
-          ).slice(0, 10),
-          createdAt: family.created_at || "",
-          description: `Contribution — ${family.family_name}`,
-          category: "Contribution",
-          paidBy: family.family_name || "—",
-          income: Number(family.contribution_paid || 0),
-          expense: 0,
-        })),
-
-      ...expenses.map((expense) => ({
-        key: `expense-${expense.id}`,
-        recordType: "expenses",
-        recordId: expense.id,
-        date: String(
-          expense.expense_date || expense.created_at || ""
+  const ledgerRows = [
+    ...families
+      .filter((family) => Number(family.contribution_paid) > 0)
+      .map((family) => ({
+        key: `family-${family.id}`,
+        recordType: "families",
+        recordId: family.id,
+        date: (
+          family.contribution_date ||
+          family.created_at ||
+          ""
         ).slice(0, 10),
-        createdAt: expense.created_at || "",
-        description: expense.description || "Expense",
-        category: expense.category || "Other",
-        paidBy: expense.paid_by || "—",
-        income: 0,
-        expense: Number(expense.amount || 0),
+        description: `Contribution — ${family.family_name}`,
+        category: "Contribution",
+        paidBy: family.family_name,
+        income: Number(family.contribution_paid || 0),
+        expense: 0,
       })),
-    ];
+    ...expenses.map((expense) => ({
+      key: `expense-${expense.id}`,
+      recordType: "expenses",
+      recordId: expense.id,
+      date: (
+        expense.expense_date ||
+        expense.created_at ||
+        ""
+      ).slice(0, 10),
+      description: expense.description,
+      category: expense.category || "Expense",
+      paidBy: expense.paid_by || "—",
+      income: 0,
+      expense: Number(expense.amount || 0),
+    })),
+  ]
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .reduce((rows, item) => {
+      const previousBalance = rows.length
+        ? rows[rows.length - 1].balance
+        : 0;
 
-    entries.sort(
-      (a, b) =>
-        a.date.localeCompare(b.date) ||
-        a.createdAt.localeCompare(b.createdAt) ||
-        a.key.localeCompare(b.key)
-    );
+      rows.push({
+        ...item,
+        balance: previousBalance + item.income - item.expense,
+      });
 
-    let runningBalance = 0;
-
-    return entries.map((entry) => {
-      runningBalance += entry.income - entry.expense;
-
-      return {
-        ...entry,
-        balance: runningBalance,
-      };
-    });
-  }, [families, expenses]);
+      return rows;
+    }, [])
+    .reverse();
 
   async function adminRequest(table, action, data, id) {
-    if (!passcode.trim()) {
-      throw new Error("Admin passcode is missing. Please enter it again.");
+    if (!FUNCTION_URL || !SUPABASE_ANON_KEY) {
+      throw new Error(
+        "Supabase configuration is missing. Check your environment variables."
+      );
     }
 
     const response = await fetch(FUNCTION_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+        apikey: SUPABASE_ANON_KEY,
         "x-admin-passcode": passcode,
       },
-      body: JSON.stringify({
-        table,
-        action,
-        ...(data !== undefined ? { data } : {}),
-        ...(id !== undefined && id !== null ? { id } : {}),
-      }),
+      body: JSON.stringify({ table, action, data, id }),
     });
 
     let result;
@@ -301,67 +248,56 @@ export default function App() {
     try {
       result = await response.json();
     } catch {
-      throw new Error(
-        `Server returned an invalid response (HTTP ${response.status}).`
-      );
+      throw new Error("The server returned an invalid response.");
     }
 
-    if (!response.ok || result.success === false) {
-      throw new Error(
-        result.error || `Request failed (HTTP ${response.status}).`
-      );
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || "The request failed.");
     }
 
     return result;
   }
 
   function startEditExpense(item) {
-    if (!item) {
-      setMessage("Could not find this expense. Refresh and try again.");
-      return;
-    }
-
-    setEditingFamilyId(null);
-    setFamilyForm(emptyFamilyForm());
+    if (!item) return;
 
     setEditingExpenseId(item.id);
     setExpenseForm({
       description: item.description || "",
       amount: String(item.amount ?? ""),
-      expense_date: String(
-        item.expense_date || item.created_at || today()
-      ).slice(0, 10),
+      expense_date: item.expense_date || today(),
       paid_by: item.paid_by || "",
       category: item.category || "Travel",
     });
 
-    setTab("overview");
-    setMessage("Edit the expense in the form below, then click Update expense.");
+    setMessage(
+      "Editing expense. Make your changes and select Update expense."
+    );
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function startEditFamily(item) {
-    if (!item) {
-      setMessage("Could not find this family. Refresh and try again.");
-      return;
-    }
-
-    setEditingExpenseId(null);
-    setExpenseForm(emptyExpenseForm());
+    if (!item) return;
 
     setEditingFamilyId(item.id);
     setFamilyForm({
       family_name: item.family_name || "",
+      pilgrim_members: "2",
       contribution_paid: String(item.contribution_paid ?? "0"),
+      settlement_status: familyStatus(item.settlement_status),
       payment_mode: item.payment_mode || "",
-      contribution_date: String(
-        item.contribution_date || item.created_at || today()
-      ).slice(0, 10),
+      contribution_date:
+        item.contribution_date ||
+        item.created_at?.slice(0, 10) ||
+        today(),
     });
 
-    setTab("overview");
     setMessage(
-      "Edit the contribution in the form below, then click Update contribution."
+      "Editing family contribution. Make your changes and select Update contribution."
     );
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function cancelExpenseEdit() {
@@ -378,24 +314,6 @@ export default function App() {
 
   async function saveExpense(event) {
     event.preventDefault();
-
-    if (!expenseForm.description.trim()) {
-      setMessage("Please enter an expense description.");
-      return;
-    }
-
-    if (!expenseForm.expense_date) {
-      setMessage("Please select the expense date.");
-      return;
-    }
-
-    const amount = Number(expenseForm.amount);
-
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setMessage("Enter an expense amount greater than zero.");
-      return;
-    }
-
     setBusy(true);
     setMessage("");
 
@@ -405,7 +323,7 @@ export default function App() {
         editingExpenseId ? "update" : "insert",
         {
           description: expenseForm.description.trim(),
-          amount,
+          amount: Number(expenseForm.amount),
           expense_date: expenseForm.expense_date,
           paid_by: expenseForm.paid_by.trim() || null,
           category: expenseForm.category,
@@ -417,14 +335,9 @@ export default function App() {
       setExpenseForm(emptyExpenseForm());
 
       await loadData();
-
-      setMessage(
-        editingExpenseId
-          ? "Expense updated successfully."
-          : "Expense added successfully."
-      );
+      setMessage("Expense saved successfully.");
     } catch (err) {
-      setMessage(`Could not save expense: ${err.message}`);
+      setMessage(`Save failed: ${err.message}`);
     } finally {
       setBusy(false);
     }
@@ -432,24 +345,6 @@ export default function App() {
 
   async function saveFamily(event) {
     event.preventDefault();
-
-    if (!familyForm.family_name.trim()) {
-      setMessage("Please enter the family name.");
-      return;
-    }
-
-    if (!familyForm.contribution_date) {
-      setMessage("Please select the contribution date.");
-      return;
-    }
-
-    const amountPaid = Number(familyForm.contribution_paid);
-
-    if (!Number.isFinite(amountPaid) || amountPaid < 0) {
-      setMessage("Enter a valid contribution amount.");
-      return;
-    }
-
     setBusy(true);
     setMessage("");
 
@@ -460,9 +355,11 @@ export default function App() {
         {
           family_name: familyForm.family_name.trim(),
           pilgrim_members: 2,
-          contribution_paid: amountPaid,
+          contribution_paid: Number(familyForm.contribution_paid),
           settlement_status:
-            amountPaid >= REQUIRED_PER_COUPLE ? "Paid" : "Pending",
+            Number(familyForm.contribution_paid) >= REQUIRED_PER_COUPLE
+              ? "Paid"
+              : "Pending",
           payment_mode: familyForm.payment_mode.trim() || null,
           contribution_date: familyForm.contribution_date,
         },
@@ -473,49 +370,26 @@ export default function App() {
       setFamilyForm(emptyFamilyForm());
 
       await loadData();
-
-      setMessage(
-        editingFamilyId
-          ? "Family contribution updated successfully."
-          : "Family contribution added successfully."
-      );
+      setMessage("Family contribution saved successfully.");
     } catch (err) {
-      setMessage(`Could not save family contribution: ${err.message}`);
+      setMessage(`Save failed: ${err.message}`);
     } finally {
       setBusy(false);
     }
   }
 
   async function deleteRecord(table, id) {
-    if (!id) {
-      setMessage("Could not identify the record to delete.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this record permanently?"
-    );
-
-    if (!confirmed) return;
+    if (!window.confirm("Delete this record permanently?")) return;
 
     setBusy(true);
     setMessage("");
 
     try {
       await adminRequest(table, "delete", undefined, id);
-
-      if (table === "expenses" && editingExpenseId === id) {
-        cancelExpenseEdit();
-      }
-
-      if (table === "families" && editingFamilyId === id) {
-        cancelFamilyEdit();
-      }
-
       await loadData();
-      setMessage("Record deleted successfully.");
+      setMessage("Record deleted.");
     } catch (err) {
-      setMessage(`Could not delete record: ${err.message}`);
+      setMessage(`Delete failed: ${err.message}`);
     } finally {
       setBusy(false);
     }
@@ -525,24 +399,24 @@ export default function App() {
     event.preventDefault();
 
     if (!passcode.trim()) {
-      setMessage("Please enter your admin passcode.");
+      setMessage("Enter your admin passcode.");
       return;
     }
 
     setAdminMode(true);
     setAdminOpen(false);
     setMessage(
-      "Admin mode enabled. The server verifies your passcode when you save or delete a record."
+      "Admin mode enabled. Save operations verify your passcode."
     );
   }
 
   function leaveAdmin() {
     setAdminMode(false);
     setPasscode("");
-    setAdminOpen(false);
+    setMessage("");
+    setTab("overview");
     cancelExpenseEdit();
     cancelFamilyEdit();
-    setMessage("Admin mode exited.");
   }
 
   return (
@@ -561,7 +435,6 @@ export default function App() {
         <div className="side-label">WORKSPACE</div>
 
         <button
-          type="button"
           className={`nav-link ${tab === "overview" ? "active" : ""}`}
           onClick={() => setTab("overview")}
         >
@@ -569,7 +442,6 @@ export default function App() {
         </button>
 
         <button
-          type="button"
           className={`nav-link ${tab === "expenses" ? "active" : ""}`}
           onClick={() => setTab("expenses")}
         >
@@ -577,7 +449,6 @@ export default function App() {
         </button>
 
         <button
-          type="button"
           className={`nav-link ${tab === "families" ? "active" : ""}`}
           onClick={() => setTab("families")}
         >
@@ -594,16 +465,11 @@ export default function App() {
           </div>
 
           {adminMode ? (
-            <button
-              type="button"
-              className="admin-button"
-              onClick={leaveAdmin}
-            >
+            <button className="admin-button" onClick={leaveAdmin}>
               <LogOut size={17} /> Exit admin mode
             </button>
           ) : (
             <button
-              type="button"
               className="admin-button"
               onClick={() => setAdminOpen(true)}
             >
@@ -613,256 +479,275 @@ export default function App() {
         </div>
       </aside>
 
-      <section className="main-content">
-        <header className="page-header">
+      <section className="main-panel">
+        <header className="topbar">
           <div>
-            <div className="eyebrow">DEV DARSHAN TOUR</div>
-            <h1>Tour Expense Tracker</h1>
-            <p>Contributions, expenses and tour balance in one place.</p>
+            <div className="eyebrow">PILGRIMAGE • SHARED EXPENSES</div>
+            <h1>Dev Darshan Expense Tracker</h1>
+            <p>Every contribution and expense, all in one place.</p>
           </div>
 
           <button
-            type="button"
             className="refresh-button"
-            disabled={loading}
             onClick={() => loadData(true)}
+            disabled={loading}
           >
-            <RefreshCw size={16} /> Refresh
+            <RefreshCw
+              size={16}
+              className={loading ? "spin" : ""}
+            />
+            <span>Refresh</span>
           </button>
         </header>
 
-        {error && (
-          <div className="error-banner" role="alert">
-            {error}
-          </div>
-        )}
-
         {message && (
-          <div className="message-banner" role="status">
-            {message}
+          <div className="notice" role="status">
+            <span>{message}</span>
+            <button
+              onClick={() => setMessage("")}
+              aria-label="Dismiss"
+            >
+              <X size={16} />
+            </button>
           </div>
         )}
 
-        {loading && <p className="empty-state">Loading tour data…</p>}
+        {error && (
+          <div className="error-box">
+            Unable to load shared data: {error}
+          </div>
+        )}
 
-        <section className="stats-grid">
-          <article className="stat-card">
-            <div className="stat-icon">
-              <ArrowDownRight size={20} />
-            </div>
-            <span>Total contributions</span>
-            <strong>{money(totalContributions)}</strong>
-            <small>Money received from families</small>
-          </article>
-
-          <article className="stat-card">
-            <div className="stat-icon">
-              <ArrowUpRight size={20} />
-            </div>
-            <span>Total expenses</span>
-            <strong>{money(totalExpenses)}</strong>
-            <small>Money spent on the tour</small>
-          </article>
-
-          <article className="stat-card">
-            <div className="stat-icon">
-              <Wallet size={20} />
-            </div>
-            <span>Available balance</span>
-            <strong>{money(balance)}</strong>
-            <small>
-              {balance < 0
-                ? "Expenses exceed contributions"
-                : "Contributions minus expenses"}
-            </small>
-          </article>
-
-          <article className="stat-card">
-            <div className="stat-icon">
-              <Coins size={20} />
-            </div>
-            <span>Tour members</span>
-            <strong>{totalMembers}</strong>
-            <small>{pendingFamilies} families have payment pending</small>
-          </article>
-        </section>
+        <div className="status-row">
+          <span className="live-dot" />
+          Shared data refreshes every 15 seconds
+          <span className="status-separator">•</span>
+          {adminMode ? "Admin mode" : "View only"}
+        </div>
 
         {tab === "overview" && (
-          <section className="data-card ledger-card">
+          <section className="stats-grid">
+            <article className="stat-card">
+              <div className="stat-icon">
+                <ArrowDownRight size={20} />
+              </div>
+              <span>Total contributions</span>
+              <strong>{money(totalContributions)}</strong>
+              <small>Money received from families</small>
+            </article>
+
+            <article className="stat-card">
+              <div className="stat-icon">
+                <ArrowUpRight size={20} />
+              </div>
+              <span>Total expenses</span>
+              <strong>{money(totalExpenses)}</strong>
+              <small>Money spent on the tour</small>
+            </article>
+
+            <article className="stat-card">
+              <div className="stat-icon">
+                <IndianRupee size={20} />
+              </div>
+              <span>Available balance</span>
+              <strong>{money(balance)}</strong>
+              <small>Contributions minus expenses</small>
+            </article>
+
+            <article className="stat-card">
+              <div className="stat-icon">
+                <Coins size={20} />
+              </div>
+              <span>Tour members</span>
+              <strong>{totalMembers}</strong>
+              <small>{families.length} family records</small>
+            </article>
+          </section>
+        )}
+
+        {tab === "overview" && (
+          <section className="data-card">
             <div className="section-heading">
               <div>
-                <div className="eyebrow">TOUR ACCOUNT BOOK</div>
-                <h2>Dev Darshan Expense Register</h2>
+                <div className="eyebrow">LIVE REGISTER</div>
+                <h2>Complete tour ledger</h2>
                 <p className="section-note">
-                  Transactions are shown oldest to newest so the running balance
-                  is easy to follow.
+                  Contributions and expenses with a running balance.
                 </p>
               </div>
-              <span className="count-pill">{ledgerRows.length} entries</span>
             </div>
 
-            <div className="desktop-only-table table-wrap">
-              <table className="ledger-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Details</th>
-                    <th>Category</th>
-                    <th>Paid by / Family</th>
-                    <th>Money in</th>
-                    <th>Money out</th>
-                    <th>Running balance</th>
-                    {adminMode && <th>Action</th>}
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {ledgerRows.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={adminMode ? 8 : 7}
-                        className="empty-state"
-                      >
-                        No tour entries yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    ledgerRows.map((item) => (
-                      <tr key={item.key}>
-                        <td>{dateLabel(item.date)}</td>
-                        <td>
-                          <strong>{item.description}</strong>
-                        </td>
-                        <td>{item.category}</td>
-                        <td>{item.paidBy}</td>
-                        <td className="money-in">
-                          {item.income > 0 ? money(item.income) : "—"}
-                        </td>
-                        <td className="money-out">
-                          {item.expense > 0 ? money(item.expense) : "—"}
-                        </td>
-                        <td className="balance-cell">
-                          <strong>{money(item.balance)}</strong>
-                        </td>
-
-                        {adminMode && (
-                          <td className="row-actions">
-                            <button
-                              type="button"
-                              className="text-button"
-                              disabled={busy}
-                              onClick={() => {
-                                if (item.recordType === "expenses") {
-                                  const record = expenses.find(
-                                    (expense) => expense.id === item.recordId
-                                  );
-                                  startEditExpense(record);
-                                } else {
-                                  const record = families.find(
-                                    (family) => family.id === item.recordId
-                                  );
-                                  startEditFamily(record);
-                                }
-                              }}
-                            >
-                              <Pencil size={14} /> Edit
-                            </button>
-                          </td>
-                        )}
+            {loading ? (
+              <p className="empty-state">Loading ledger…</p>
+            ) : ledgerRows.length === 0 ? (
+              <p className="empty-state">
+                No transactions yet. Contributions and expenses will appear
+                here.
+              </p>
+            ) : (
+              <>
+                <div className="desktop-only-table">
+                  <table className="ledger-table">
+                    <thead>
+                      <tr>
+                        <th>Date</th>
+                        <th>Description</th>
+                        <th>Type</th>
+                        <th>Money in</th>
+                        <th>Money out</th>
+                        <th>Balance</th>
+                        {adminMode && <th>Action</th>}
                       </tr>
-                    ))
-                  )}
-                </tbody>
+                    </thead>
+                    <tbody>
+                      {ledgerRows.map((item) => (
+                        <tr key={item.key}>
+                          <td>
+                            <span className="date-cell">
+                              <CalendarDays size={14} />
+                              {dateLabel(item.date)}
+                            </span>
+                          </td>
+                          <td>
+                            <div className="expense-name">
+                              <span className="expense-symbol">
+                                {item.income ? (
+                                  <ArrowDownRight size={17} />
+                                ) : (
+                                  <ArrowUpRight size={17} />
+                                )}
+                              </span>
+                              <div>
+                                <strong>{item.description}</strong>
+                                <small>{item.category}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span
+                              className={`settlement ${
+                                item.income ? "settled" : "pending"
+                              }`}
+                            >
+                              {item.income ? "Contribution" : "Expense"}
+                            </span>
+                          </td>
+                          <td className="money-in">
+                            {item.income ? money(item.income) : "—"}
+                          </td>
+                          <td className="money-out">
+                            {item.expense ? money(item.expense) : "—"}
+                          </td>
+                          <td className="balance-cell">
+                            {money(item.balance)}
+                          </td>
+                          {adminMode && (
+                            <td className="row-actions">
+                              <button
+                                className="text-button"
+                                disabled={busy}
+                                onClick={() =>
+                                  item.recordType === "expenses"
+                                    ? startEditExpense(
+                                        expenses.find(
+                                          (record) =>
+                                            record.id === item.recordId
+                                        )
+                                      )
+                                    : startEditFamily(
+                                        families.find(
+                                          (record) =>
+                                            record.id === item.recordId
+                                        )
+                                      )
+                                }
+                              >
+                                <Pencil size={14} /> Edit
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                
-{ledgerRows.length > 0 && (
-  <tfoot>
-    <tr>
-      <td colSpan={4}>
-        <strong>Current total</strong>
-      </td>
-      <td className="money-in">
-        <strong>{money(totalContributions)}</strong>
-      </td>
-      <td className="money-out">
-        <strong>{money(totalExpenses)}</strong>
-      </td>
-      <td className="balance-cell">
-        <strong>{money(balance)}</strong>
-      </td>
-      {adminMode && <td />}
-    </tr>
-  </tfoot>
-)}
+                <div className="mobile-ledger-list">
+                  {ledgerRows.map((item) => (
+                    <article className="mobile-ledger-card" key={item.key}>
+                      <div className="mobile-ledger-heading">
+                        <div className="mobile-ledger-description">
+                          <strong>{item.description}</strong>
+                          <span>
+                            {item.category} · {dateLabel(item.date)}
+                          </span>
+                        </div>
+                        <strong
+                          className={
+                            item.income
+                              ? "ledger-income-amount"
+                              : "ledger-expense-amount"
+                          }
+                        >
+                          {item.income
+                            ? `+${money(item.income)}`
+                            : `−${money(item.expense)}`}
+                        </strong>
+                      </div>
 
-              </table>
-            </div>
+                      <div className="mobile-ledger-details">
+                        <span>Paid by / Family: {item.paidBy || "—"}</span>
+                      </div>
+
+                      <div className="mobile-ledger-balance">
+                        <span>Running balance</span>
+                        <strong>{money(item.balance)}</strong>
+                      </div>
+
+                      {adminMode && (
+                        <div className="form-actions">
+                          <button
+                            className="text-button"
+                            disabled={busy}
+                            onClick={() =>
+                              item.recordType === "expenses"
+                                ? startEditExpense(
+                                    expenses.find(
+                                      (record) =>
+                                        record.id === item.recordId
+                                    )
+                                  )
+                                : startEditFamily(
+                                    families.find(
+                                      (record) =>
+                                        record.id === item.recordId
+                                    )
+                                  )
+                            }
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
         )}
 
         {adminMode && (
-          <section className="admin-panel" id="admin-entry-forms">
+          <section className="admin-panel">
             <div className="section-heading">
               <div>
                 <div className="eyebrow">ADMIN TOOLS</div>
                 <h2>Manage tour records</h2>
               </div>
-
               <span className="admin-tag">
                 <ShieldCheck size={14} /> Admin enabled
               </span>
-            </div> 
-
-            <div className="mobile-expense-list">
-  {sortedExpenses.map((item) => (
-    <article className="mobile-expense-card" key={item.id}>
-      <div className="mobile-expense-top">
-        <span className="expense-symbol">
-          <Wallet size={18} />
-        </span>
-
-        <div className="mobile-expense-info">
-          <strong>{item.description}</strong>
-          <span>{item.category || "Other"}</span>
-        </div>
-
-        <strong className="mobile-expense-amount">
-          {money(item.amount)}
-        </strong>
-      </div>
-
-      <div className="mobile-expense-meta">
-        <span>
-          <CalendarDays size={13} />
-          {dateLabel(item.expense_date || item.created_at)}
-        </span>
-        <span>Paid by: {item.paid_by || "—"}</span>
-      </div>
-
-      {adminMode && (
-        <div className="mobile-card-actions">
-          <button
-            type="button"
-            className="text-button"
-            disabled={busy}
-            onClick={() => startEditExpense(item)}
-          >
-            <Pencil size={14} /> Edit
-          </button>
-
-          <button
-            type="button"
-            className="delete-button"
-            disabled={busy}
-            onClick={() => deleteRecord("expenses", item.id)}
-          >
-            Delete
-          </button>
-        </div>
-      )}
-    </article>
-  ))}
-</div>
+            </div>
 
             <div className="forms-grid">
               <form className="entry-form" onSubmit={saveExpense}>
@@ -877,10 +762,10 @@ export default function App() {
                     required
                     value={expenseForm.description}
                     onChange={(event) =>
-                      setExpenseForm((previous) => ({
-                        ...previous,
+                      setExpenseForm({
+                        ...expenseForm,
                         description: event.target.value,
-                      }))
+                      })
                     }
                     placeholder="e.g. Bus booking"
                   />
@@ -893,10 +778,10 @@ export default function App() {
                     type="date"
                     value={expenseForm.expense_date}
                     onChange={(event) =>
-                      setExpenseForm((previous) => ({
-                        ...previous,
+                      setExpenseForm({
+                        ...expenseForm,
                         expense_date: event.target.value,
-                      }))
+                      })
                     }
                   />
                 </label>
@@ -910,12 +795,11 @@ export default function App() {
                     step="0.01"
                     value={expenseForm.amount}
                     onChange={(event) =>
-                      setExpenseForm((previous) => ({
-                        ...previous,
+                      setExpenseForm({
+                        ...expenseForm,
                         amount: event.target.value,
-                      }))
+                      })
                     }
-                    placeholder="Enter amount"
                   />
                 </label>
 
@@ -925,10 +809,10 @@ export default function App() {
                     <input
                       value={expenseForm.paid_by}
                       onChange={(event) =>
-                        setExpenseForm((previous) => ({
-                          ...previous,
+                        setExpenseForm({
+                          ...expenseForm,
                           paid_by: event.target.value,
-                        }))
+                        })
                       }
                       placeholder="Name (optional)"
                     />
@@ -939,10 +823,10 @@ export default function App() {
                     <select
                       value={expenseForm.category}
                       onChange={(event) =>
-                        setExpenseForm((previous) => ({
-                          ...previous,
+                        setExpenseForm({
+                          ...expenseForm,
                           category: event.target.value,
-                        }))
+                        })
                       }
                     >
                       <option>Travel</option>
@@ -972,7 +856,6 @@ export default function App() {
                     <button
                       className="text-button"
                       type="button"
-                      disabled={busy}
                       onClick={cancelExpenseEdit}
                     >
                       Cancel
@@ -995,10 +878,10 @@ export default function App() {
                     required
                     value={familyForm.family_name}
                     onChange={(event) =>
-                      setFamilyForm((previous) => ({
-                        ...previous,
+                      setFamilyForm({
+                        ...familyForm,
                         family_name: event.target.value,
-                      }))
+                      })
                     }
                     placeholder="e.g. Patil family"
                   />
@@ -1011,16 +894,16 @@ export default function App() {
                     type="date"
                     value={familyForm.contribution_date}
                     onChange={(event) =>
-                      setFamilyForm((previous) => ({
-                        ...previous,
+                      setFamilyForm({
+                        ...familyForm,
                         contribution_date: event.target.value,
-                      }))
+                      })
                     }
                   />
                 </label>
 
                 <label>
-                  Amount paid (₹)
+                  Paid (₹)
                   <input
                     required
                     type="number"
@@ -1028,36 +911,18 @@ export default function App() {
                     step="0.01"
                     value={familyForm.contribution_paid}
                     onChange={(event) =>
-                      setFamilyForm((previous) => ({
-                        ...previous,
+                      setFamilyForm({
+                        ...familyForm,
                         contribution_paid: event.target.value,
-                      }))
+                      })
                     }
                   />
                 </label>
 
                 <p className="contribution-rule">
                   Required per couple:{" "}
-                  <strong>{money(REQUIRED_PER_COUPLE)}</strong>.
-                  <br />
-                  Remaining:{" "}
-                  <strong>
-                    {money(
-                      Math.max(
-                        0,
-                        REQUIRED_PER_COUPLE -
-                          Number(familyForm.contribution_paid || 0)
-                      )
-                    )}
-                  </strong>
-                  <br />
-                  Status:{" "}
-                  <strong>
-                    {Number(familyForm.contribution_paid || 0) >=
-                    REQUIRED_PER_COUPLE
-                      ? "Paid"
-                      : "Pending"}
-                  </strong>
+                  <strong>{money(REQUIRED_PER_COUPLE)}</strong>. Payment status
+                  is calculated automatically from the amount paid.
                 </p>
 
                 <label>
@@ -1065,10 +930,10 @@ export default function App() {
                   <input
                     value={familyForm.payment_mode}
                     onChange={(event) =>
-                      setFamilyForm((previous) => ({
-                        ...previous,
+                      setFamilyForm({
+                        ...familyForm,
                         payment_mode: event.target.value,
-                      }))
+                      })
                     }
                     placeholder="Cash, UPI, etc. (optional)"
                   />
@@ -1091,7 +956,6 @@ export default function App() {
                     <button
                       className="text-button"
                       type="button"
-                      disabled={busy}
                       onClick={cancelFamilyEdit}
                     >
                       Cancel
@@ -1113,7 +977,6 @@ export default function App() {
 
               {tab === "overview" && (
                 <button
-                  type="button"
                   className="text-button"
                   onClick={() => setTab("expenses")}
                 >
@@ -1124,74 +987,123 @@ export default function App() {
 
             {loading ? (
               <p className="empty-state">Loading expenses…</p>
-            ) : sortedExpenses.length === 0 ? (
-              <p className="empty-state">No expenses added yet.</p>
+            ) : expenses.length === 0 ? (
+              <p className="empty-state">
+                No expenses added yet.{" "}
+                {adminMode
+                  ? "Use the form above to add the first expense."
+                  : "The tour admin can add the first expense."}
+              </p>
             ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Expense</th>
-                      <th>Date</th>
-                      <th>Paid by</th>
-                      <th>Amount</th>
-                      {adminMode && <th>Action</th>}
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {sortedExpenses.map((item) => (
-                      <tr key={item.id}>
-                        <td>
-                          <div className="expense-name">
-                            <span className="expense-symbol">
-                              <Wallet size={17} />
-                            </span>
-                            <div>
-                              <strong>{item.description}</strong>
-                              <small>{item.category || "Other"}</small>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td>
-                          <span className="date-cell">
-                            <CalendarDays size={14} />
-                            {dateLabel(item.expense_date || item.created_at)}
-                          </span>
-                        </td>
-
-                        <td>{item.paid_by || "—"}</td>
-                        <td className="amount-cell">{money(item.amount)}</td>
-
-                        {adminMode && (
-                          <td className="row-actions">
-                            <button
-                              type="button"
-                              className="text-button"
-                              disabled={busy}
-                              onClick={() => startEditExpense(item)}
-                            >
-                              <Pencil size={14} /> Edit
-                            </button>
-
-                            <button
-                              type="button"
-                              className="delete-button"
-                              disabled={busy}
-                              onClick={() =>
-                                deleteRecord("expenses", item.id)
-                              }
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        )}
+              <>
+                <div className="desktop-only-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Expense</th>
+                        <th>Date</th>
+                        <th>Paid by</th>
+                        <th>Amount</th>
+                        {adminMode && <th>Action</th>}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {sortedExpenses.map((item) => (
+                        <tr key={item.id}>
+                          <td>
+                            <div className="expense-name">
+                              <span className="expense-symbol">
+                                <Wallet size={17} />
+                              </span>
+                              <div>
+                                <strong>{item.description}</strong>
+                                <small>{item.category || "General"}</small>
+                              </div>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="date-cell">
+                              <CalendarDays size={14} />
+                              {dateLabel(item.expense_date)}
+                            </span>
+                          </td>
+                          <td>{item.paid_by || "—"}</td>
+                          <td className="amount-cell">{money(item.amount)}</td>
+                          {adminMode && (
+                            <td className="row-actions">
+                              <button
+                                className="text-button"
+                                disabled={busy}
+                                onClick={() => startEditExpense(item)}
+                              >
+                                <Pencil size={14} /> Edit
+                              </button>
+                              <button
+                                className="delete-button"
+                                disabled={busy}
+                                onClick={() =>
+                                  deleteRecord("expenses", item.id)
+                                }
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mobile-ledger-list">
+                  {sortedExpenses.map((item) => (
+                    <article
+                      className="mobile-ledger-card"
+                      key={`expense-${item.id}`}
+                    >
+                      <div className="mobile-ledger-heading">
+                        <div className="mobile-ledger-description">
+                          <strong>{item.description}</strong>
+                          <span>
+                            {item.category || "General"} ·{" "}
+                            {dateLabel(item.expense_date)}
+                          </span>
+                        </div>
+
+                        <strong className="ledger-expense-amount">
+                          −{money(item.amount)}
+                        </strong>
+                      </div>
+
+                      <div className="mobile-ledger-details">
+                        <span>Paid by: {item.paid_by || "—"}</span>
+                      </div>
+
+                      {adminMode && (
+                        <div className="form-actions">
+                          <button
+                            className="text-button"
+                            disabled={busy}
+                            onClick={() => startEditExpense(item)}
+                          >
+                            <Pencil size={14} /> Edit
+                          </button>
+
+                          <button
+                            className="delete-button"
+                            disabled={busy}
+                            onClick={() =>
+                              deleteRecord("expenses", item.id)
+                            }
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              </>
             )}
           </section>
         )}
@@ -1226,17 +1138,21 @@ export default function App() {
                 <span>Required per couple</span>
                 <strong>{money(REQUIRED_PER_COUPLE)}</strong>
               </div>
-
               <div>
                 <span>Families paid</span>
-                <strong>{paidFamilies}</strong>
+                <strong>
+                  {
+                    families.filter(
+                      (item) =>
+                        familyStatus(item.settlement_status) === "Paid"
+                    ).length
+                  }
+                </strong>
               </div>
-
               <div>
                 <span>Amount received</span>
                 <strong>{money(totalContributions)}</strong>
               </div>
-
               <div>
                 <span>Payment pending</span>
                 <strong>{pendingFamilies} families</strong>
@@ -1246,87 +1162,157 @@ export default function App() {
             {loading ? (
               <p className="empty-state">Loading family records…</p>
             ) : families.length === 0 ? (
-              <p className="empty-state">No family records added yet.</p>
+              <p className="empty-state">
+                No family records yet.{" "}
+                {adminMode
+                  ? "Add the first family above."
+                  : "Family details will appear here when added by the admin."}
+              </p>
             ) : (
-              <div className="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Family</th>
-                      <th>Contribution date</th>
-                      <th>Members</th>
-                      <th>Required</th>
-                      <th>Paid</th>
-                      <th>Remaining</th>
-                      <th>Payment mode</th>
-                      <th>Status</th>
-                      {adminMode && <th>Action</th>}
-                    </tr>
-                  </thead>
+              <>
+                <div className="desktop-only-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Family</th>
+                        <th>Contribution date</th>
+                        <th>Members</th>
+                        <th>Required (₹)</th>
+                        <th>Paid (₹)</th>
+                        <th>Remaining (₹)</th>
+                        <th>Payment mode</th>
+                        <th>Status</th>
+                        {adminMode && <th>Action</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedFamilies.map((item) => {
+                        const paid = Number(item.contribution_paid || 0);
+                        const isPaid = paid >= REQUIRED_PER_COUPLE;
 
-                  <tbody>
-                    {sortedFamilies.map((item) => {
-                      const paid = Number(item.contribution_paid || 0);
-                      const remaining = Math.max(
-                        0,
-                        REQUIRED_PER_COUPLE - paid
-                      );
-                      const status = familyStatus(item);
-
-                      return (
-                        <tr key={item.id}>
-                          <td>
-                            <strong>{item.family_name}</strong>
-                          </td>
-                          <td>
-                            {dateLabel(
-                              item.contribution_date || item.created_at
-                            )}
-                          </td>
-                          <td>2</td>
-                          <td>{money(REQUIRED_PER_COUPLE)}</td>
-                          <td className="amount-cell">{money(paid)}</td>
-                          <td className="amount-cell">{money(remaining)}</td>
-                          <td>{item.payment_mode || "—"}</td>
-                          <td>
-                            <span
-                              className={`settlement ${
-                                status === "Paid" ? "settled" : "pending"
-                              }`}
-                            >
-                              {status}
-                            </span>
-                          </td>
-
-                          {adminMode && (
-                            <td className="row-actions">
-                              <button
-                                type="button"
-                                className="text-button"
-                                disabled={busy}
-                                onClick={() => startEditFamily(item)}
-                              >
-                                <Pencil size={14} /> Edit
-                              </button>
-
-                              <button
-                                type="button"
-                                className="delete-button"
-                                disabled={busy}
-                                onClick={() =>
-                                  deleteRecord("families", item.id)
-                                }
-                              >
-                                Delete
-                              </button>
+                        return (
+                          <tr key={item.id}>
+                            <td>
+                              <strong>{item.family_name}</strong>
                             </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            <td>
+                              {dateLabel(
+                                item.contribution_date || item.created_at
+                              )}
+                            </td>
+                            <td>2</td>
+                            <td>{money(REQUIRED_PER_COUPLE)}</td>
+                            <td className="amount-cell">{money(paid)}</td>
+                            <td className="amount-cell">
+                              {money(Math.max(0, REQUIRED_PER_COUPLE - paid))}
+                            </td>
+                            <td>{item.payment_mode || "—"}</td>
+                            <td>
+                              <span
+                                className={`settlement ${
+                                  isPaid ? "settled" : "pending"
+                                }`}
+                              >
+                                {isPaid ? "Paid" : "Pending"}
+                              </span>
+                            </td>
+
+                            {adminMode && (
+                              <td className="row-actions">
+                                <button
+                                  className="text-button"
+                                  disabled={busy}
+                                  onClick={() => startEditFamily(item)}
+                                >
+                                  <Pencil size={14} /> Edit
+                                </button>
+                                <button
+                                  className="delete-button"
+                                  disabled={busy}
+                                  onClick={() =>
+                                    deleteRecord("families", item.id)
+                                  }
+                                >
+                                  Delete
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="mobile-ledger-list">
+                  {sortedFamilies.map((item) => {
+                    const paid = Number(item.contribution_paid || 0);
+                    const remaining = Math.max(
+                      0,
+                      REQUIRED_PER_COUPLE - paid
+                    );
+                    const isPaid = paid >= REQUIRED_PER_COUPLE;
+
+                    return (
+                      <article
+                        className="mobile-ledger-card"
+                        key={`family-${item.id}`}
+                      >
+                        <div className="mobile-ledger-heading">
+                          <div className="mobile-ledger-description">
+                            <strong>{item.family_name}</strong>
+                            <span>
+                              Contribution ·{" "}
+                              {dateLabel(
+                                item.contribution_date || item.created_at
+                              )}
+                            </span>
+                          </div>
+
+                          <strong className="ledger-income-amount">
+                            {money(paid)}
+                          </strong>
+                        </div>
+
+                        <div className="mobile-ledger-details">
+                          <span>Members: 2</span>
+                          <span>Payment mode: {item.payment_mode || "—"}</span>
+                          <span>
+                            Status: {isPaid ? "Paid" : "Pending"}
+                          </span>
+                        </div>
+
+                        <div className="mobile-ledger-balance">
+                          <span>Remaining</span>
+                          <strong>{money(remaining)}</strong>
+                        </div>
+
+                        {adminMode && (
+                          <div className="form-actions">
+                            <button
+                              className="text-button"
+                              disabled={busy}
+                              onClick={() => startEditFamily(item)}
+                            >
+                              <Pencil size={14} /> Edit
+                            </button>
+
+                            <button
+                              className="delete-button"
+                              disabled={busy}
+                              onClick={() =>
+                                deleteRecord("families", item.id)
+                              }
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </section>
         )}
@@ -1382,8 +1368,8 @@ export default function App() {
             </button>
 
             <small>
-              <CheckCircle2 size={14} />
-              Your passcode is not stored in the website files.
+              <CheckCircle2 size={14} /> The passcode is not saved in the
+              website files.
             </small>
           </form>
         </div>
