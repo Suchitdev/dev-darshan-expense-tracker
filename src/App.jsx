@@ -701,7 +701,7 @@ export default function App() {
               <span className="count-pill">{ledgerRows.length} entries</span>
             </div>
 
-            <div className="table-wrap">
+            <div className="desktop-only-table table-wrap">
               <table className="ledger-table">
                 <thead>
                   <tr>
@@ -811,7 +811,58 @@ export default function App() {
               <span className="admin-tag">
                 <ShieldCheck size={14} /> Admin enabled
               </span>
-            </div>
+            </div> 
+
+            <div className="mobile-expense-list">
+  {sortedExpenses.map((item) => (
+    <article className="mobile-expense-card" key={item.id}>
+      <div className="mobile-expense-top">
+        <span className="expense-symbol">
+          <Wallet size={18} />
+        </span>
+
+        <div className="mobile-expense-info">
+          <strong>{item.description}</strong>
+          <span>{item.category || "Other"}</span>
+        </div>
+
+        <strong className="mobile-expense-amount">
+          {money(item.amount)}
+        </strong>
+      </div>
+
+      <div className="mobile-expense-meta">
+        <span>
+          <CalendarDays size={13} />
+          {dateLabel(item.expense_date || item.created_at)}
+        </span>
+        <span>Paid by: {item.paid_by || "—"}</span>
+      </div>
+
+      {adminMode && (
+        <div className="mobile-card-actions">
+          <button
+            type="button"
+            className="text-button"
+            disabled={busy}
+            onClick={() => startEditExpense(item)}
+          >
+            <Pencil size={14} /> Edit
+          </button>
+
+          <button
+            type="button"
+            className="delete-button"
+            disabled={busy}
+            onClick={() => deleteRecord("expenses", item.id)}
+          >
+            Delete
+          </button>
+        </div>
+      )}
+    </article>
+  ))}
+</div>
 
             <div className="forms-grid">
               <form className="entry-form" onSubmit={saveExpense}>
