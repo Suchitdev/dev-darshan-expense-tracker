@@ -711,3 +711,337 @@ button, input, select, textarea { font-family: inherit; }
   }
 }
 
+
+/* FINAL MOBILE LAYOUT OVERRIDES */
+@media (max-width: 600px) {
+  /* Prevent the page itself from becoming wider than the phone */
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-width: 320px;
+    overflow-x: clip;
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    gap: 14px;
+    padding: 10px;
+    margin: 0;
+    overflow-x: clip;
+  }
+
+  /* Compact top navigation */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .brand {
+    gap: 10px;
+    padding: 2px 2px 12px;
+  }
+
+  .brand-mark {
+    flex-shrink: 0;
+  }
+
+  .side-label {
+    padding: 5px 4px;
+  }
+
+  .nav-link {
+    width: 100%;
+    min-height: 44px;
+    white-space: normal;
+  }
+
+  .sidebar-bottom {
+    margin-top: 8px;
+    padding-top: 0;
+  }
+
+  .shared-note {
+    display: none;
+  }
+
+  .admin-button {
+    min-height: 44px;
+    margin-top: 8px;
+  }
+
+  /* Main dashboard */
+  .main-content {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin: 4px 0 18px;
+  }
+
+  .page-header h1 {
+    font-size: 24px;
+    line-height: 1.3;
+    letter-spacing: -0.5px;
+    overflow-wrap: normal;
+  }
+
+  .page-header p {
+    font-size: 12px;
+  }
+
+  .refresh-button {
+    align-self: flex-start;
+    min-height: 44px;
+  }
+
+  /* Two readable summary cards per row */
+  .stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 9px;
+    margin-bottom: 15px;
+  }
+
+  .stat-card {
+    min-width: 0;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .stat-card > span,
+  .stat-card > small {
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .stat-card > strong {
+    font-size: clamp(16px, 4.5vw, 21px);
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+  }
+
+  /* Section spacing */
+  .data-card,
+  .admin-panel {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 14px;
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 13px;
+  }
+
+  .section-heading h2 {
+    font-size: 17px;
+    line-height: 1.4;
+  }
+
+  .section-note {
+    line-height: 1.5;
+  }
+
+  /* EXPENSE SHEET: keep all table text horizontal */
+  .table-wrap {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 8px;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+  }
+
+  .ledger-table {
+    width: max-content;
+    min-width: 800px;
+    table-layout: auto;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .ledger-table th,
+  .ledger-table td,
+  .ledger-table tfoot td {
+    padding: 12px 13px;
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    vertical-align: middle;
+  }
+
+  .ledger-table th {
+    font-size: 10px;
+  }
+
+  .ledger-table td {
+    font-size: 12px;
+  }
+
+  .ledger-table .expense-name {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 9px;
+    min-width: 145px;
+    white-space: nowrap !important;
+  }
+
+  .ledger-table .expense-name strong,
+  .ledger-table .expense-name small {
+    display: block;
+    width: max-content;
+    max-width: none;
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
+  .ledger-table .expense-symbol {
+    flex: 0 0 33px;
+  }
+
+  .ledger-table .date-cell {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    width: max-content;
+    white-space: nowrap !important;
+  }
+
+  .ledger-table .money-in,
+  .ledger-table .money-out,
+  .ledger-table .balance-cell {
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+  }
+
+  /* Contribution summary */
+  .contribution-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .contribution-summary > div {
+    min-width: 0;
+    padding: 10px;
+  }
+
+  .contribution-summary span {
+    line-height: 1.4;
+    overflow-wrap: normal;
+  }
+
+  .contribution-summary strong {
+    font-size: 15px;
+    overflow-wrap: anywhere;
+  }
+
+  /* Admin forms: one column and easy-to-tap controls */
+  .forms-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .entry-form {
+    min-width: 0;
+    padding: 13px;
+    gap: 12px;
+  }
+
+  .field-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .entry-form input,
+  .entry-form select,
+  .sort-control select {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .entry-form button,
+  .primary-button,
+  .text-button,
+  .delete-button {
+    min-height: 44px;
+  }
+
+  .form-actions {
+    gap: 8px;
+  }
+
+  /* Keep the passcode popup usable on small screens */
+  .modal-backdrop {
+    padding: 12px;
+  }
+
+  .admin-modal {
+    width: 100%;
+    max-width: 420px;
+    max-height: calc(100dvh - 24px);
+    padding: 24px 18px;
+    overflow-y: auto;
+  }
+
+  .admin-modal input {
+    min-height: 46px;
+    font-size: 16px;
+  }
+}
+
+/* Very narrow phones */
+@media (max-width: 360px) {
+  .app-shell {
+    padding: 7px;
+    gap: 10px;
+  }
+
+  .stats-grid {
+    gap: 7px;
+  }
+
+  .stat-card {
+    padding: 10px;
+  }
+
+  .stat-card > strong {
+    font-size: 16px;
+  }
+
+  .data-card,
+  .admin-panel {
+    padding: 9px;
+  }
+
+  .ledger-table th,
+  .ledger-table td {
+    padding: 11px 10px;
+  }
+}
